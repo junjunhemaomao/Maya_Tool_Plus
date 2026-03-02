@@ -1044,4 +1044,5 @@ def showUI():
     modeling_tools_dialog = FacialRiggingUI()
     modeling_tools_dialog.show()
 
-showUI()
+if __name__ == "__main__":
+    showUI()

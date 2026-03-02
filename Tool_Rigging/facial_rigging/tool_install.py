@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from maya import cmds
+from maya import mel
 import os
 import ssl
 import sys
@@ -14,6 +15,7 @@ GITHUB_BASE_RAW = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Pl
 GITHUB_SCRIPT_URL = GITHUB_BASE_RAW + "/facial_rigging.py"
 GITHUB_VERSION_URL = GITHUB_BASE_RAW + "/version.txt"
 GITHUB_BANNER_URL = GITHUB_BASE_RAW + "/GameFaceRigTool.png"
+GITHUB_ICON_URL = GITHUB_BASE_RAW + "/facial_rigging.png"
 
 TIMEOUT = 30
 
@@ -49,6 +51,98 @@ def _install_dir():
     base = cmds.internalVar(userScriptDir=True)
     return os.path.join(base, "Maya_Tool_Plus", "facial_rigging")
 
+def _icons_dir():
+    try:
+        return cmds.internalVar(userIconDir=True)
+    except Exception:
+        return os.path.join(cmds.internalVar(userPrefDir=True), "icons")
+
+
+def _normalize_path(p):
+    return (p or "").replace("\\", "/")
+
+
+def _install_icon(local_banner):
+    if not local_banner or not os.path.exists(local_banner):
+        return None
+    icon_dir = _icons_dir()
+    _ensure_dir(icon_dir)
+    dst = os.path.join(icon_dir, os.path.basename(local_banner))
+    try:
+        shutil.copy2(local_banner, dst)
+    except Exception:
+        dst = local_banner
+    return dst
+
+
+def _shelf_top():
+    try:
+        return mel.eval("$tmp=$gShelfTopLevel")
+    except Exception:
+        try:
+            return mel.eval("global string $gShelfTopLevel; $gShelfTopLevel")
+        except Exception:
+            return None
+
+
+def _ensure_shelf_tab(label):
+    top = _shelf_top()
+    if not top or not cmds.tabLayout(top, exists=True):
+        return None
+    existing = cmds.tabLayout(top, q=True, ca=True) or []
+    if label in existing and cmds.shelfLayout(label, exists=True):
+        return label
+    try:
+        mel.eval('addNewShelfTab "{0}"'.format(label))
+    except Exception:
+        pass
+    selected = cmds.tabLayout(top, q=True, st=True)
+    if selected and cmds.shelfLayout(selected, exists=True):
+        return selected
+    return None
+
+
+def _ensure_shelf_button(shelf, icon_path):
+    if not shelf or not cmds.shelfLayout(shelf, exists=True):
+        return None
+    children = cmds.shelfLayout(shelf, q=True, ca=True) or []
+    for c in children:
+        try:
+            if cmds.shelfButton(c, q=True, annotation=True) == "Maya_Tool_Plus Facial Rigging":
+                if icon_path:
+                    try:
+                        cmds.shelfButton(c, e=True, image1=_normalize_path(icon_path))
+                    except Exception:
+                        pass
+                return c
+        except Exception:
+            pass
+    cmd = (
+        "import os,sys,importlib.util;"
+        "from maya import cmds;"
+        "p=os.path.join(cmds.internalVar(userScriptDir=True),'Maya_Tool_Plus','facial_rigging','facial_rigging.py');"
+        "name='maya_tool_plus_facial_rigging';"
+        "spec=importlib.util.spec_from_file_location(name,p);"
+        "mod=importlib.util.module_from_spec(spec);"
+        "sys.modules[name]=mod;"
+        "spec.loader.exec_module(mod);"
+        "mod.showUI()"
+    )
+    btn = cmds.shelfButton(
+        parent=shelf,
+        label="FacialRigging",
+        annotation="Maya_Tool_Plus Facial Rigging",
+        image1=_normalize_path(icon_path) if icon_path else "commandButton.png",
+        command=cmd,
+        sourceType="python",
+    )
+    try:
+        mel.eval("saveAllShelves($gShelfTopLevel)")
+    except Exception:
+        pass
+    return btn
+
+
 
 def _load_and_show(script_path):
     module_name = "maya_tool_plus_facial_rigging"
@@ -71,6 +165,7 @@ def install_or_update():
     local_script = os.path.join(target_dir, "facial_rigging.py")
     local_version = os.path.join(target_dir, "version.txt")
     local_banner = os.path.join(target_dir, "GameFaceRigTool.png")
+    local_icon = os.path.join(target_dir, "facial_rigging.png")
 
     latest = None
     try:
@@ -103,9 +198,18 @@ def install_or_update():
         _write_atomic(local_banner, _fetch(GITHUB_BANNER_URL))
     except Exception:
         pass
+    try:
+        _write_atomic(local_icon, _fetch(GITHUB_ICON_URL))
+    except Exception:
+        pass
 
     if target_dir not in sys.path:
         sys.path.insert(0, target_dir)
+
+    icon_path = _install_icon(local_icon)
+    shelf = _ensure_shelf_tab("MayaToolPlus")
+    if shelf:
+        _ensure_shelf_button(shelf, icon_path)
 
     _load_and_show(local_script)
     cmds.inViewMessage(amg="Facial Rigging 已安装/更新", pos="midCenter", fade=True)
@@ -122,4 +226,3 @@ def _main():
 
 
 _main()
-
