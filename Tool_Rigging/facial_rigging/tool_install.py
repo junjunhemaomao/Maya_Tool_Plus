@@ -46,6 +46,11 @@ def _write_atomic(path, data):
         f.write(data)
     shutil.move(tmp_path, path)
 
+def _copy_atomic(src, dst):
+    tmp_path = dst + ".tmp"
+    shutil.copyfile(src, tmp_path)
+    shutil.move(tmp_path, dst)
+
 
 def _install_dir():
     base = cmds.internalVar(userScriptDir=True)
@@ -53,9 +58,17 @@ def _install_dir():
 
 def _icons_dir():
     try:
-        return cmds.internalVar(userIconDir=True)
+        d = cmds.internalVar(userIconDir=True)
+        if not d:
+            raise RuntimeError("empty userIconDir")
+        return d
     except Exception:
-        return os.path.join(cmds.internalVar(userPrefDir=True), "icons")
+        pref = cmds.internalVar(userPrefDir=True) or ""
+        if not pref:
+            # 最后兜底：使用用户脚本目录下的 icons
+            base = cmds.internalVar(userScriptDir=True) or ""
+            return os.path.join(base, "icons")
+        return os.path.join(pref, "icons")
 
 
 def _normalize_path(p):
@@ -189,19 +202,32 @@ def install_or_update():
     if choice != "安装/更新":
         return False
 
-    _write_atomic(local_script, _fetch(GITHUB_SCRIPT_URL))
+    try:
+        _write_atomic(local_script, _fetch(GITHUB_SCRIPT_URL))
+    except Exception:
+        repo_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "facial_rigging.py")
+        if os.path.exists(repo_script):
+            _copy_atomic(repo_script, local_script)
+        else:
+            raise
     try:
         _write_atomic(local_version, _fetch(GITHUB_VERSION_URL))
     except Exception:
-        pass
+        repo_version = os.path.join(os.path.dirname(os.path.abspath(__file__)), "version.txt")
+        if os.path.exists(repo_version):
+            _copy_atomic(repo_version, local_version)
     try:
         _write_atomic(local_banner, _fetch(GITHUB_BANNER_URL))
     except Exception:
-        pass
+        repo_banner = os.path.join(os.path.dirname(os.path.abspath(__file__)), "GameFaceRigTool.png")
+        if os.path.exists(repo_banner):
+            _copy_atomic(repo_banner, local_banner)
     try:
         _write_atomic(local_icon, _fetch(GITHUB_ICON_URL))
     except Exception:
-        pass
+        repo_icon = os.path.join(os.path.dirname(os.path.abspath(__file__)), "facial_rigging.png")
+        if os.path.exists(repo_icon):
+            _copy_atomic(repo_icon, local_icon)
 
     if target_dir not in sys.path:
         sys.path.insert(0, target_dir)
