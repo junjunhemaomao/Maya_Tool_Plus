@@ -251,196 +251,355 @@ def create_face_joints():
             pass
         cmds.select(clear=True)
 
+    """镜像左侧骨骼到右侧（稳定全量版）"""
+    joints = cmds.ls("l_*", type="joint") or []
+    if not joints:
+        cmds.warning("未找到任何 l_ joints")
+        return
 
+    mirrored = 0
+
+    for j in joints:
+        target = j.replace("l_", "r_", 1)
+
+        if cmds.objExists(target):
+            try:
+                cmds.delete(target)
+            except:
+                pass
+
+        try:
+            cmds.mirrorJoint(
+                j,
+                mirrorYZ=True,
+                mirrorBehavior=True,
+                searchReplace=("l_", "r_")
+            )
+            mirrored += 1
+        except:
+            pass
+
+    cmds.headsUpMessage("Mirrored {} joints".format(mirrored))
+    cmds.select(clear=True)
 def mirror_left_joints():
-    """镜像左侧骨骼到右侧"""
-    selected = cmds.ls("l_*", type="joint") or []
+    selected = cmds.ls('l_*')
     for s in selected:
+        # Check if name starts with "l_"
         if not s.startswith("l_"):
             continue
-        if not _is_tool_joint(s):
-            continue
-        target = "r_" + s[2:]
-        if _exists(target):
-            continue
-        try:
-            cmds.mirrorJoint(s, mirrorYZ=True, mirrorBehavior=True, searchReplace=("l_", "r_"))
-        except Exception:
-            continue
+        # Replace first "l_" with "r_"
+        mirror_name = s.replace("l_", "r_", 1)
+        cmds.mirrorJoint(s, mirrorYZ=True, mirrorBehavior=True, searchReplace=("l", "r"))
+        cmds.rename(mirror_name)
     cmds.select(clear=True)
 
+def _j(n):
+    """自动拼接 joint tag（等价老脚本写死 _anim）"""
+    return n + JOINT_TAG
 
-def connect_joints():
-    """连接骨骼层级关系"""
     cmds.headsUpMessage("Parent Joints")
 
-    _safe_parent(_resolve_joint("l_ear", end=True), _resolve_joint("l_ear"))
-    _safe_parent(_resolve_joint("r_ear", end=True), _resolve_joint("r_ear"))
-    _safe_parent([_resolve_joint("l_ear"), _resolve_joint("r_ear")], _resolve_joint("head"))
+    # === 耳朵 ===
+    cmds.parent(_j('l_ear') + END_TAG, _j('l_ear'))
+    cmds.parent(_j('r_ear') + END_TAG, _j('r_ear'))
+    cmds.parent(_j('l_ear'), _j('r_ear'), _j('head'))
 
-    _safe_parent(_resolve_joint("l_lid_upper_inner"), _resolve_joint("l_lid_upper_inner_pivot"))
-    _safe_parent(_resolve_joint("l_lid_upper_mid"), _resolve_joint("l_lid_upper_mid_pivot"))
-    _safe_parent(_resolve_joint("l_lid_upper_outer"), _resolve_joint("l_lid_upper_outer_pivot"))
-    _safe_parent(_resolve_joint("l_lid_lower_inner"), _resolve_joint("l_lid_lower_inner_pivot"))
-    _safe_parent(_resolve_joint("l_lid_lower_mid"), _resolve_joint("l_lid_lower_mid_pivot"))
-    _safe_parent(_resolve_joint("l_lid_lower_outer"), _resolve_joint("l_lid_lower_outer_pivot"))
-    _safe_parent(
-        [
-            _resolve_joint("l_lid_upper_inner_pivot"),
-            _resolve_joint("l_lid_upper_mid_pivot"),
-            _resolve_joint("l_lid_upper_outer_pivot"),
-            _resolve_joint("l_lid_lower_inner_pivot"),
-            _resolve_joint("l_lid_lower_mid_pivot"),
-            _resolve_joint("l_lid_lower_outer_pivot"),
-        ],
-        _resolve_joint("head"),
+    # === 眼皮 pivot ===
+    for side in ('l', 'r'):
+        cmds.parent(_j(f'{side}_lid_upper_inner'), _j(f'{side}_lid_upper_inner_pivot'))
+        cmds.parent(_j(f'{side}_lid_upper_mid'),   _j(f'{side}_lid_upper_mid_pivot'))
+        cmds.parent(_j(f'{side}_lid_upper_outer'), _j(f'{side}_lid_upper_outer_pivot'))
+
+        cmds.parent(_j(f'{side}_lid_lower_inner'), _j(f'{side}_lid_lower_inner_pivot'))
+        cmds.parent(_j(f'{side}_lid_lower_mid'),   _j(f'{side}_lid_lower_mid_pivot'))
+        cmds.parent(_j(f'{side}_lid_lower_outer'), _j(f'{side}_lid_lower_outer_pivot'))
+
+        cmds.parent(
+            _j(f'{side}_lid_upper_inner_pivot'),
+            _j(f'{side}_lid_upper_mid_pivot'),
+            _j(f'{side}_lid_upper_outer_pivot'),
+            _j(f'{side}_lid_lower_inner_pivot'),
+            _j(f'{side}_lid_lower_mid_pivot'),
+            _j(f'{side}_lid_lower_outer_pivot'),
+            _j('head')
+        )
+
+    # === jaw ===
+    cmds.parent(_j('jaw_bone_b') + END_TAG, _j('jaw_bone_a') + END_TAG)
+    cmds.parent(_j('jaw_bone_a') + END_TAG, _j('jaw'))
+    cmds.parent(_j('jaw'), _j('head'))
+
+    # === neck ===
+    cmds.parent(
+        _j('l_neck_muscle_upper'),
+        _j('l_below_jaw'),
+        _j('r_neck_muscle_upper'),
+        _j('r_below_jaw'),
+        _j('below_jaw'),
+        _j('neck_b')
     )
 
-    _safe_parent(_resolve_joint("r_lid_upper_inner"), _resolve_joint("r_lid_upper_inner_pivot"))
-    _safe_parent(_resolve_joint("r_lid_upper_mid"), _resolve_joint("r_lid_upper_mid_pivot"))
-    _safe_parent(_resolve_joint("r_lid_upper_outer"), _resolve_joint("r_lid_upper_outer_pivot"))
-    _safe_parent(_resolve_joint("r_lid_lower_inner"), _resolve_joint("r_lid_lower_inner_pivot"))
-    _safe_parent(_resolve_joint("r_lid_lower_mid"), _resolve_joint("r_lid_lower_mid_pivot"))
-    _safe_parent(_resolve_joint("r_lid_lower_outer"), _resolve_joint("r_lid_lower_outer_pivot"))
-    _safe_parent(
-        [
-            _resolve_joint("r_lid_upper_inner_pivot"),
-            _resolve_joint("r_lid_upper_mid_pivot"),
-            _resolve_joint("r_lid_upper_outer_pivot"),
-            _resolve_joint("r_lid_lower_inner_pivot"),
-            _resolve_joint("r_lid_lower_mid_pivot"),
-            _resolve_joint("r_lid_lower_outer_pivot"),
-        ],
-        _resolve_joint("head"),
+    cmds.parent(
+        _j('l_neck_muscle_mid'),
+        _j('r_neck_muscle_mid'),
+        _j('throat'),
+        _j('l_neck_muscle_lower'),
+        _j('r_neck_muscle_lower'),
+        _j('neck_a')
     )
 
-    _safe_parent(_resolve_joint("jaw_bone_b", end=True), _resolve_joint("jaw_bone_a", end=True))
-    _safe_parent(_resolve_joint("jaw_bone_a", end=True), _resolve_joint("jaw"))
-    _safe_parent(_resolve_joint("jaw"), _resolve_joint("head"))
+    # === 主链 ===
+    cmds.parent(_j('head') + END_TAG, _j('head'))
+    cmds.parent(_j('head'), _j('neck_b'))
+    cmds.parent(_j('neck_b'), _j('neck_a'))
+    cmds.parent(_j('neck_a'), _j('root'))
 
-    _safe_parent(
-        [
-            _resolve_joint("l_neck_muscle_upper"),
-            _resolve_joint("l_below_jaw"),
-            _resolve_joint("r_neck_muscle_upper"),
-            _resolve_joint("r_below_jaw"),
-            _resolve_joint("below_jaw"),
-        ],
-        _resolve_joint("neck_b"),
-    )
-    _safe_parent(
-        [
-            _resolve_joint("l_neck_muscle_mid"),
-            _resolve_joint("r_neck_muscle_mid"),
-            _resolve_joint("throat"),
-            _resolve_joint("l_neck_muscle_lower"),
-            _resolve_joint("r_neck_muscle_lower"),
-        ],
-        _resolve_joint("neck_a"),
-    )
-
-    _safe_parent(_resolve_joint("head", end=True), _resolve_joint("head"))
-    _safe_parent(_resolve_joint("head"), _resolve_joint("neck_b"))
-    _safe_parent(_resolve_joint("neck_b"), _resolve_joint("neck_a"))
-    _safe_parent(_resolve_joint("neck_a"), _resolve_joint("root"))
-
-    _safe_parent(
-        [
-            _resolve_joint("brow_mid"),
-            _resolve_joint("brow_mid_upper"),
-            _resolve_joint("l_brow_inner"),
-            _resolve_joint("l_brow_mid"),
-            _resolve_joint("l_brow_outer"),
-            _resolve_joint("l_brow_inner_upper"),
-            _resolve_joint("l_brow_mid_upper"),
-            _resolve_joint("l_brow_outer_upper"),
-            _resolve_joint("l_brow_bone"),
-            _resolve_joint("r_brow_inner"),
-            _resolve_joint("r_brow_mid"),
-            _resolve_joint("r_brow_outer"),
-            _resolve_joint("r_brow_inner_upper"),
-            _resolve_joint("r_brow_mid_upper"),
-            _resolve_joint("r_brow_outer_upper"),
-            _resolve_joint("r_brow_bone"),
-        ],
-        _resolve_joint("head"),
-    )
-    _safe_parent(
-        [
-            _resolve_joint("l_lid_above_inner"),
-            _resolve_joint("l_lid_above_outer"),
-            _resolve_joint("l_nose_crease"),
-            _resolve_joint("l_lip_corner"),
-            _resolve_joint("l_lip_upper_outer"),
-            _resolve_joint("l_squint_inner"),
-            _resolve_joint("l_lip_lower_inner"),
-            _resolve_joint("l_nasolabial_mid"),
-            _resolve_joint("lip_below"),
-            _resolve_joint("l_squint_mid"),
-            _resolve_joint("l_cheek_bone_outer"),
-            _resolve_joint("l_lip_upper_inner"),
-            _resolve_joint("l_cheek_lower_inner"),
-            _resolve_joint("l_lip_below_nose"),
-            _resolve_joint("l_lip_nasolabial_crease"),
-            _resolve_joint("l_jaw_clench"),
-            _resolve_joint("l_lid_inner"),
-            _resolve_joint("chin"),
-            _resolve_joint("l_lid_outer"),
-            _resolve_joint("l_cheek_upper_inner"),
-            _resolve_joint("l_cheek_upper_outer"),
-            _resolve_joint("l_jawline"),
-            _resolve_joint("l_nostril"),
-            _resolve_joint("l_nasolabial_mouth_corner"),
-            _resolve_joint("l_lip_lower_outer"),
-            _resolve_joint("l_nasolabial_lower"),
-            _resolve_joint("l_nasolabial_upper"),
-            _resolve_joint("l_squint_outer"),
-            _resolve_joint("l_chin"),
-        ],
-        _resolve_joint("head"),
-    )
-    _safe_parent(
-        [
-            _resolve_joint("r_lid_above_inner"),
-            _resolve_joint("r_lid_above_outer"),
-            _resolve_joint("r_nose_crease"),
-            _resolve_joint("r_lip_corner"),
-            _resolve_joint("r_lip_upper_outer"),
-            _resolve_joint("r_squint_inner"),
-            _resolve_joint("r_lip_lower_inner"),
-            _resolve_joint("r_nasolabial_mid"),
-            _resolve_joint("r_squint_mid"),
-            _resolve_joint("r_cheek_bone_outer"),
-            _resolve_joint("r_lip_upper_inner"),
-            _resolve_joint("r_cheek_lower_inner"),
-            _resolve_joint("r_lip_below_nose"),
-            _resolve_joint("r_lip_nasolabial_crease"),
-            _resolve_joint("r_jaw_clench"),
-            _resolve_joint("r_lid_inner"),
-            _resolve_joint("r_lid_outer"),
-            _resolve_joint("r_cheek_upper_inner"),
-            _resolve_joint("r_cheek_upper_outer"),
-            _resolve_joint("r_jawline"),
-            _resolve_joint("r_nostril"),
-            _resolve_joint("r_nasolabial_mouth_corner"),
-            _resolve_joint("r_lip_lower_outer"),
-            _resolve_joint("r_nasolabial_lower"),
-            _resolve_joint("r_nasolabial_upper"),
-            _resolve_joint("r_squint_outer"),
-            _resolve_joint("lip_above"),
-            _resolve_joint("lip_mid_lower"),
-            _resolve_joint("nose_bridge_crease"),
-            _resolve_joint("lip_mid_upper"),
-            _resolve_joint("nose"),
-            _resolve_joint("r_chin"),
-        ],
-        _resolve_joint("head"),
+    # === 眉毛 (补充) ===
+    cmds.parent(
+        _j("brow_mid"),
+        _j("brow_mid_upper"),
+        _j("l_brow_inner"),
+        _j("l_brow_mid"),
+        _j("l_brow_outer"),
+        _j("l_brow_inner_upper"),
+        _j("l_brow_mid_upper"),
+        _j("l_brow_outer_upper"),
+        _j("l_brow_bone"),
+        _j("r_brow_inner"),
+        _j("r_brow_mid"),
+        _j("r_brow_outer"),
+        _j("r_brow_inner_upper"),
+        _j("r_brow_mid_upper"),
+        _j("r_brow_outer_upper"),
+        _j("r_brow_bone"),
+        _j("head")
     )
 
-    _safe_parent(_resolve_joint("l_eyeball", end=True), _resolve_joint("l_eyeball"))
-    _safe_parent(_resolve_joint("r_eyeball", end=True), _resolve_joint("r_eyeball"))
+    # === 面部细节 (左) (补充) ===
+    cmds.parent(
+        _j("l_lid_above_inner"),
+        _j("l_lid_above_outer"),
+        _j("l_nose_crease"),
+        _j("l_lip_corner"),
+        _j("l_lip_upper_outer"),
+        _j("l_squint_inner"),
+        _j("l_lip_lower_inner"),
+        _j("l_nasolabial_mid"),
+        _j("lip_below"),
+        _j("l_squint_mid"),
+        _j("l_cheek_bone_outer"),
+        _j("l_lip_upper_inner"),
+        _j("l_cheek_lower_inner"),
+        _j("l_lip_below_nose"),
+        _j("l_lip_nasolabial_crease"),
+        _j("l_jaw_clench"),
+        _j("l_lid_inner"),
+        _j("chin"),
+        _j("l_lid_outer"),
+        _j("l_cheek_upper_inner"),
+        _j("l_cheek_upper_outer"),
+        _j("l_jawline"),
+        _j("l_nostril"),
+        _j("l_nasolabial_mouth_corner"),
+        _j("l_lip_lower_outer"),
+        _j("l_nasolabial_lower"),
+        _j("l_nasolabial_upper"),
+        _j("l_squint_outer"),
+        _j("l_chin"),
+        _j("head")
+    )
+
+    # === 面部细节 (右) (补充) ===
+    cmds.parent(
+        _j("r_lid_above_inner"),
+        _j("r_lid_above_outer"),
+        _j("r_nose_crease"),
+        _j("r_lip_corner"),
+        _j("r_lip_upper_outer"),
+        _j("r_squint_inner"),
+        _j("r_lip_lower_inner"),
+        _j("r_nasolabial_mid"),
+        _j("r_squint_mid"),
+        _j("r_cheek_bone_outer"),
+        _j("r_lip_upper_inner"),
+        _j("r_cheek_lower_inner"),
+        _j("r_lip_below_nose"),
+        _j("r_lip_nasolabial_crease"),
+        _j("r_jaw_clench"),
+        _j("r_lid_inner"),
+        _j("r_lid_outer"),
+        _j("r_cheek_upper_inner"),
+        _j("r_cheek_upper_outer"),
+        _j("r_jawline"),
+        _j("r_nostril"),
+        _j("r_nasolabial_mouth_corner"),
+        _j("r_lip_lower_outer"),
+        _j("r_nasolabial_lower"),
+        _j("r_nasolabial_upper"),
+        _j("r_squint_outer"),
+        _j("lip_above"),
+        _j("lip_mid_lower"),
+        _j("nose_bridge_crease"),
+        _j("lip_mid_upper"),
+        _j("nose"),
+        _j("r_chin"),
+        _j("head")
+    )
+
+    # === 眼球 ===
+    cmds.parent(_j('l_eyeball') + END_TAG, _j('l_eyeball'))
+    cmds.parent(_j('r_eyeball') + END_TAG, _j('r_eyeball'))
+
     cmds.select(clear=True)
+def connect_joints():
+    cmds.headsUpMessage("Parent Joints (Fixed Full Version)")
+    
+    # 通用清空父级函数：避免原有父级干扰
+    def clear_parent(obj):
+        if _exists(obj) and cmds.listRelatives(obj, p=True):
+            cmds.parent(obj, world=True)
 
+    # === 基础骨骼链 (根→脖子→头→下巴/颚骨) ===
+    # 根节点
+    clear_parent(_j('root'))
+    # 脖子层级
+    clear_parent(_j('neck_a'))
+    clear_parent(_j('neck_b'))
+    cmds.parent(_j('neck_b'), _j('neck_a'))
+    cmds.parent(_j('neck_a'), _j('root'))
+    # 头部基础
+    clear_parent(_j('head'))
+    clear_parent(_j('head') + END_TAG)
+    cmds.parent(_j('head') + END_TAG, _j('head'))
+    cmds.parent(_j('head'), _j('neck_b'))
+
+    # === 颚骨/下巴 ===
+    clear_parent(_j('jaw'))
+    clear_parent(_j('jaw_bone_a') + END_TAG)
+    clear_parent(_j('jaw_bone_b') + END_TAG)
+    cmds.parent(_j('jaw_bone_b') + END_TAG, _j('jaw_bone_a') + END_TAG)
+    cmds.parent(_j('jaw_bone_a') + END_TAG, _j('jaw'))
+    cmds.parent(_j('jaw'), _j('head'))
+    # 下巴
+    clear_parent(_j('chin'))
+    clear_parent(_j('l_chin'))
+    clear_parent(_j('r_chin'))
+    cmds.parent(_j('chin'), _j('l_chin'), _j('r_chin'), _j('jaw'))
+
+    # === 耳朵 ===
+    clear_parent(_j('l_ear'))
+    clear_parent(_j('l_ear') + END_TAG)
+    clear_parent(_j('r_ear'))
+    clear_parent(_j('r_ear') + END_TAG)
+    cmds.parent(_j('l_ear') + END_TAG, _j('l_ear'))
+    cmds.parent(_j('r_ear') + END_TAG, _j('r_ear'))
+    cmds.parent(_j('l_ear'), _j('r_ear'), _j('head'))
+
+    # === 眼球 ===
+    clear_parent(_j('l_eyeball'))
+    clear_parent(_j('l_eyeball') + END_TAG)
+    clear_parent(_j('r_eyeball'))
+    clear_parent(_j('r_eyeball') + END_TAG)
+    cmds.parent(_j('l_eyeball') + END_TAG, _j('l_eyeball'))
+    cmds.parent(_j('r_eyeball') + END_TAG, _j('r_eyeball'))
+    cmds.parent(_j('l_eyeball'), _j('r_eyeball'), _j('head'))
+
+    # === 眼皮Pivot (左右侧统一处理) ===
+    for side in ('l', 'r'):
+        # 眼皮子节点
+        lid_upper_inner = _j(f'{side}_lid_upper_inner')
+        lid_upper_mid = _j(f'{side}_lid_upper_mid')
+        lid_upper_outer = _j(f'{side}_lid_upper_outer')
+        lid_lower_inner = _j(f'{side}_lid_lower_inner')
+        lid_lower_mid = _j(f'{side}_lid_lower_mid')
+        lid_lower_outer = _j(f'{side}_lid_lower_outer')
+        # Pivot父节点
+        pivot_upper_inner = _j(f'{side}_lid_upper_inner_pivot')
+        pivot_upper_mid = _j(f'{side}_lid_upper_mid_pivot')
+        pivot_upper_outer = _j(f'{side}_lid_upper_outer_pivot')
+        pivot_lower_inner = _j(f'{side}_lid_lower_inner_pivot')
+        pivot_lower_mid = _j(f'{side}_lid_lower_mid_pivot')
+        pivot_lower_outer = _j(f'{side}_lid_lower_outer_pivot')
+        
+        # 清空原有父级
+        for obj in [lid_upper_inner, lid_upper_mid, lid_upper_outer, lid_lower_inner, lid_lower_mid, lid_lower_outer]:
+            clear_parent(obj)
+        for obj in [pivot_upper_inner, pivot_upper_mid, pivot_upper_outer, pivot_lower_inner, pivot_lower_mid, pivot_lower_outer]:
+            clear_parent(obj)
+        
+        # 重新连接
+        cmds.parent(lid_upper_inner, pivot_upper_inner)
+        cmds.parent(lid_upper_mid, pivot_upper_mid)
+        cmds.parent(lid_upper_outer, pivot_upper_outer)
+        cmds.parent(lid_lower_inner, pivot_lower_inner)
+        cmds.parent(lid_lower_mid, pivot_lower_mid)
+        cmds.parent(lid_lower_outer, pivot_lower_outer)
+        # Pivot归到head
+        cmds.parent(
+            pivot_upper_inner, pivot_upper_mid, pivot_upper_outer,
+            pivot_lower_inner, pivot_lower_mid, pivot_lower_outer,
+            _j('head')
+        )
+
+    # === 眉毛 (左右侧统一) ===
+    brow_joints = [
+        _j("brow_mid"), _j("brow_mid_upper"),
+        _j("l_brow_inner"), _j("l_brow_mid"), _j("l_brow_outer"),
+        _j("l_brow_inner_upper"), _j("l_brow_mid_upper"), _j("l_brow_outer_upper"),
+        _j("l_brow_bone"), _j("r_brow_inner"), _j("r_brow_mid"), _j("r_brow_outer"),
+        _j("r_brow_inner_upper"), _j("r_brow_mid_upper"), _j("r_brow_outer_upper"),
+        _j("r_brow_bone")
+    ]
+    for jnt in brow_joints:
+        clear_parent(jnt)
+    cmds.parent(*brow_joints, _j('head'))
+
+    # === 颈部肌肉 (左右侧统一) ===
+    neck_upper = [_j('l_neck_muscle_upper'), _j('r_neck_muscle_upper'), _j('l_below_jaw'), _j('r_below_jaw'), _j('below_jaw')]
+    neck_mid = [_j('l_neck_muscle_mid'), _j('r_neck_muscle_mid'), _j('throat')]
+    neck_lower = [_j('l_neck_muscle_lower'), _j('r_neck_muscle_lower')]
+    
+    for jnt in neck_upper + neck_mid + neck_lower:
+        clear_parent(jnt)
+    cmds.parent(*neck_upper, _j('neck_b'))
+    cmds.parent(*neck_mid, _j('neck_a'))
+    cmds.parent(*neck_lower, _j('root'))
+
+    # === 面部细节 (左侧) ===
+    l_face_joints = [
+        _j("l_lid_above_inner"), _j("l_lid_above_outer"), _j("l_nose_crease"),
+        _j("l_lip_corner"), _j("l_lip_upper_outer"), _j("l_squint_inner"),
+        _j("l_lip_lower_inner"), _j("l_nasolabial_mid"), _j("l_squint_mid"),
+        _j("l_cheek_bone_outer"), _j("l_lip_upper_inner"), _j("l_cheek_lower_inner"),
+        _j("l_lip_below_nose"), _j("l_lip_nasolabial_crease"), _j("l_jaw_clench"),
+        _j("l_lid_inner"), _j("l_lid_outer"), _j("l_cheek_upper_inner"),
+        _j("l_cheek_upper_outer"), _j("l_jawline"), _j("l_nostril"),
+        _j("l_nasolabial_mouth_corner"), _j("l_lip_lower_outer"), _j("l_nasolabial_lower"),
+        _j("l_nasolabial_upper"), _j("l_squint_outer"), _j("lip_below")
+    ]
+    for jnt in l_face_joints:
+        clear_parent(jnt)
+    cmds.parent(*l_face_joints, _j('head'))
+
+    # === 面部细节 (右侧) ===
+    r_face_joints = [
+        _j("r_lid_above_inner"), _j("r_lid_above_outer"), _j("r_nose_crease"),
+        _j("r_lip_corner"), _j("r_lip_upper_outer"), _j("r_squint_inner"),
+        _j("r_lip_lower_inner"), _j("r_nasolabial_mid"), _j("r_squint_mid"),
+        _j("r_cheek_bone_outer"), _j("r_lip_upper_inner"), _j("r_cheek_lower_inner"),
+        _j("r_lip_below_nose"), _j("r_lip_nasolabial_crease"), _j("r_jaw_clench"),
+        _j("r_lid_inner"), _j("r_lid_outer"), _j("r_cheek_upper_inner"),
+        _j("r_cheek_upper_outer"), _j("r_jawline"), _j("r_nostril"),
+        _j("r_nasolabial_mouth_corner"), _j("r_lip_lower_outer"), _j("r_nasolabial_lower"),
+        _j("r_nasolabial_upper"), _j("r_squint_outer"), _j("lip_above"),
+        _j("lip_mid_lower"), _j("nose_bridge_crease"), _j("lip_mid_upper"),
+        _j("nose")
+    ]
+    for jnt in r_face_joints:
+        clear_parent(jnt)
+    cmds.parent(*r_face_joints, _j('head'))
+
+    cmds.select(clear=True)
 
 def _create_curve_shape(name, points, degree=1):
     """辅助函数：从点创建曲线"""
