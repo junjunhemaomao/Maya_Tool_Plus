@@ -6,8 +6,8 @@ import os, shutil, sys, urllib.request, ssl, importlib
 
 dialog = None
 VERSION = "0.9"
-URL_VERSION = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/version.txt"
-URL_SCRIPT = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/facial_rigging.py"
+URL_VERSION = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/Tool_Rigging/facial_rigging/version.txt"
+URL_SCRIPT = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/Tool_Rigging/facial_rigging/facial_rigging.py"
 TIMEOUT, SSL_CTX = 10, ssl._create_unverified_context()
 
 try:

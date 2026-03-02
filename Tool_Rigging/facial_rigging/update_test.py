@@ -6,8 +6,8 @@ import os, shutil, sys, threading, time, urllib.request, ssl
 
 test_tool_dialog = None
 CURRENT_VERSION = "0.9" 
-GITHUB_VERSION_URL = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/version.txt"
-GITHUB_SCRIPT_URL = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/facial_rigging.py"
+GITHUB_VERSION_URL = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/Tool_Rigging/facial_rigging/version.txt"
+GITHUB_SCRIPT_URL = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/Tool_Rigging/facial_rigging/facial_rigging.py"
 GITHUB_PAGE_URL = "https://github.com/junjunhemaomao/Maya_Tool_Plus"
 TIMEOUT = 10
 SSL_CTX = ssl.create_default_context()

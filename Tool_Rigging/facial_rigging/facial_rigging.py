@@ -14,10 +14,10 @@ import importlib
 # ========================
 modeling_tools_dialog = None
 CURRENT_VERSION = "1.1"
-GITHUB_VERSION_URL = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/version.txt"
-GITHUB_SCRIPT_URL = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/facial_rigging.py"
-GITHUB_BANNER_URL = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/GameFaceRigTool.png"
-GITHUB_PAGE_URL = "https://github.com/junjunhemaomao/Maya_Tool_Plus"
+GITHUB_VERSION_URL = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/Tool_Rigging/facial_rigging/version.txt"
+GITHUB_SCRIPT_URL = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/Tool_Rigging/facial_rigging/facial_rigging.py"
+GITHUB_BANNER_URL = "https://raw.githubusercontent.com/junjunhemaomao/Maya_Tool_Plus/main/Tool_Rigging/facial_rigging/GameFaceRigTool.png"
+GITHUB_PAGE_URL = "https://github.com/junjunhemaomao/Maya_Tool_Plus/tree/main/Tool_Rigging/facial_rigging"
 TIMEOUT = 60
 SSL_CTX = ssl.create_default_context()
 
@@ -810,16 +810,27 @@ class FacialRiggingUI(QtWidgets.QDialog):
         self.banner_label = ClickableLabel()
         self.banner_label.setAlignment(QtCore.Qt.AlignCenter)
         self.banner_label.setCursor(QtCore.Qt.PointingHandCursor)
+        
+        # 尝试加载本地图片
         try:
-            req = urllib.request.Request(GITHUB_BANNER_URL, headers={"User-Agent": "Maya-Facial-Rigging"})
-            with urllib.request.urlopen(req, context=SSL_CTX, timeout=TIMEOUT) as resp:
-                if resp.getcode() == 200:
-                    pixmap = QtGui.QPixmap()
-                    pixmap.loadFromData(resp.read())
-                    pixmap = pixmap.scaledToWidth(380, QtCore.Qt.SmoothTransformation)
-                    self.banner_label.setPixmap(pixmap)
-        except Exception as e:
-            cmds.warning(f"Failed to load banner: {str(e)}")
+            local_banner = os.path.join(os.path.dirname(os.path.abspath(__file__)), "GameFaceRigTool.png")
+            if os.path.exists(local_banner):
+                pixmap = QtGui.QPixmap(local_banner)
+                pixmap = pixmap.scaledToWidth(380, QtCore.Qt.SmoothTransformation)
+                self.banner_label.setPixmap(pixmap)
+            else:
+                raise Exception("Local banner not found")
+        except Exception:
+            try:
+                req = urllib.request.Request(GITHUB_BANNER_URL, headers={"User-Agent": "Maya-Facial-Rigging"})
+                with urllib.request.urlopen(req, context=SSL_CTX, timeout=TIMEOUT) as resp:
+                    if resp.getcode() == 200:
+                        pixmap = QtGui.QPixmap()
+                        pixmap.loadFromData(resp.read())
+                        pixmap = pixmap.scaledToWidth(380, QtCore.Qt.SmoothTransformation)
+                        self.banner_label.setPixmap(pixmap)
+            except Exception as e:
+                cmds.warning(f"Failed to load banner: {str(e)}")
 
         self.input_joint_tag = QtWidgets.QLineEdit(JOINT_TAG)
 
