@@ -442,6 +442,153 @@ def connect_joints():
     cmds.select(clear=True)
 
 
+def _create_curve_shape(name, points, degree=1):
+    """辅助函数：从点创建曲线"""
+    crv = cmds.curve(d=degree, p=points, k=list(range(len(points))))
+    return crv
+
+def _create_controller_shape(ctrl_name, shape_type="circle", scale=1.0):
+    """
+    根据类型创建控制器形状
+    参考 Controller_Creator.py 的逻辑，但改用更稳定的 cmds.curve 实现
+    """
+    # 确保没有命名冲突
+    if cmds.objExists(ctrl_name):
+        return ctrl_name
+
+    created = None
+    
+    if shape_type == "cube":
+        # 绘制一个立方体
+        p = [
+            (-1, 1, 1), (1, 1, 1), (1, 1, -1), (-1, 1, -1), (-1, 1, 1), 
+            (-1, -1, 1), (1, -1, 1), (1, -1, -1), (-1, -1, -1), (-1, -1, 1),
+            (1, -1, 1), (1, 1, 1), (1, 1, -1), (1, -1, -1), (-1, -1, -1), (-1, 1, -1)
+        ]
+        # 调整大小
+        p = [(x * 0.5 * scale, y * 0.5 * scale, z * 0.5 * scale) for x, y, z in p]
+        created = cmds.curve(d=1, p=p)
+        
+    elif shape_type == "square":
+        # 正方形
+        created = cmds.circle(nr=(0, 0, 1), c=(0, 0, 0), r=1 * scale, d=1, s=4)[0]
+        cmds.xform(created, ro=(0, 0, 45))
+        cmds.makeIdentity(created, apply=True, t=1, r=1, s=1)
+        
+    elif shape_type == "triangle":
+        # 三角形
+        # 使用 circle d=1 s=3 可以得到三角形，但方向可能需要调整
+        created = cmds.circle(nr=(0, 0, 1), c=(0, 0, 0), r=1 * scale, d=1, s=3)[0]
+        # 默认三角形顶点可能不在期望位置，旋转一下
+        cmds.xform(created, ro=(0, 0, 90)) # 尖端向上
+        cmds.makeIdentity(created, apply=True, t=1, r=1, s=1)
+        
+    elif shape_type == "sphere":
+        # 球体形状 (三个圆圈)
+        c1 = cmds.circle(nr=(1, 0, 0), r=1 * scale)[0]
+        c2 = cmds.circle(nr=(0, 1, 0), r=1 * scale)[0]
+        c3 = cmds.circle(nr=(0, 0, 1), r=1 * scale)[0]
+        
+        # 将形状合并到一个 transform
+        cmds.parent(cmds.listRelatives(c2, s=True), c1, r=True, s=True)
+        cmds.parent(cmds.listRelatives(c3, s=True), c1, r=True, s=True)
+        cmds.delete(c2, c3)
+        created = c1
+        
+    elif shape_type == "arrow":
+        # 单箭头
+        p = [(0, 0, 0.25), (0, 0, -0.25), (2, 0, -0.25), (2, 0, -0.5), (2.75, 0, 0), 
+             (2, 0, 0.5), (2, 0, 0.25), (0, 0, 0.25)]
+        # 缩放
+        p = [(x * 0.5 * scale, y * 0.5 * scale, z * 0.5 * scale) for x, y, z in p]
+        created = cmds.curve(d=1, p=p)
+        # 居中调整
+        cmds.move(-0.7 * scale, 0, 0, created, r=True)
+        cmds.makeIdentity(created, apply=True, t=1, r=1, s=1)
+
+    elif shape_type == "double_arrow":
+        # 双向箭头 (参考 Controller_Creator Double_Arrow)
+        # 简化版：两个箭头背对背
+        p = [
+            (0, 0, -1), (-0.5, 0, -0.5), (-0.2, 0, -0.5), (-0.2, 0, 0.5), (-0.5, 0, 0.5), (0, 0, 1),
+            (0.5, 0, 0.5), (0.2, 0, 0.5), (0.2, 0, -0.5), (0.5, 0, -0.5), (0, 0, -1)
+        ]
+        p = [(x * scale, y * scale, z * scale) for x, y, z in p]
+        created = cmds.curve(d=1, p=p)
+
+    else:
+        # 默认圆形
+        created = cmds.circle(nr=(0, 0, 1), c=(0, 0, 0), r=1 * scale)[0]
+
+    # 重命名
+    if created:
+        created = cmds.rename(created, ctrl_name)
+        # 确保颜色或其他属性设置（可选）
+        # 启用绘制覆盖并设置颜色（例如黄色 17）
+        try:
+            shapes = cmds.listRelatives(created, s=True) or []
+            for s in shapes:
+                cmds.setAttr(s + ".ove", 1)
+                cmds.setAttr(s + ".ovc", 17) # 黄色
+        except:
+            pass
+            
+    return created
+
+def _get_ctrl_config(base_name):
+    """
+    根据骨骼名称获取控制器配置 (形状, 缩放)
+    """
+    # 默认配置
+    shape = "circle"
+    scale = 1.0
+    
+    # 归一化名称
+    base = base_name.lower()
+    
+    if "root" in base:
+        shape = "arrow" # 或者 four_arrow
+        scale = 2.0
+    elif "jaw" in base or "chin" in base:
+        shape = "cube"
+        scale = 1.2
+    elif "brow" in base:
+        shape = "triangle"
+        scale = 0.5
+        # 眉毛通常是上下动，triangle 比较合适
+    elif "eye" in base or "lid" in base:
+        if "lid" in base:
+            shape = "circle"
+            scale = 0.3
+        else: # eyeball
+            shape = "sphere"
+            scale = 1.5
+    elif "nose" in base or "nostril" in base:
+        shape = "triangle"
+        scale = 0.4
+    elif "lip" in base or "mouth" in base:
+        shape = "square"
+        scale = 0.3
+        if "corner" in base:
+            scale = 0.4
+    elif "cheek" in base:
+        shape = "circle"
+        scale = 0.6
+    elif "ear" in base:
+        shape = "square"
+        scale = 1.0
+    elif "head" in base or "neck" in base:
+        shape = "circle"
+        scale = 3.0
+        if "neck" in base:
+            scale = 2.5
+    elif "tongue" in base:
+        shape = "circle"
+        scale = 0.5
+        
+    return shape, scale
+
+
 def create_ctrl_from_anim():
     """从骨骼创建控制器"""
     cmds.headsUpMessage("Tip: head joint drawStyle is None")
@@ -494,7 +641,13 @@ def create_ctrl_from_anim():
             continue
 
         try:
-            loc = cmds.spaceLocator(n=ctrl)[0]
+            # 获取控制器配置
+            shape_type, scale = _get_ctrl_config(base)
+            # 创建控制器
+            loc = _create_controller_shape(ctrl, shape_type, scale)
+            if not loc:
+                continue
+                
             group = cmds.group(loc, n=grp)
             try:
                 cmds.delete(cmds.pointConstraint(joint, group))
