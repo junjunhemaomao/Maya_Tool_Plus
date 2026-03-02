@@ -225,4 +225,9 @@ def _main():
         cmds.confirmDialog(title="安装失败", message=str(e), button=["OK"])
 
 
-_main()
+def onMayaDroppedPythonFile(*_args):
+    _main()
+
+
+if __name__ == "__main__":
+    _main()
